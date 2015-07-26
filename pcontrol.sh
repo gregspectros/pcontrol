@@ -229,7 +229,7 @@ else
 					then
 						if [ $CPU_USED -gt $MAX_CPU ]
 						then
-							echo -n "Too much CPU: " >> $LOGFILE
+							echo -n "Too much CPU[${MAX_CPU}]: " >> $LOGFILE
 							stop $PROCESS
 						fi
 					fi
