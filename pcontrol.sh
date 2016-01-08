@@ -20,13 +20,20 @@ info ()
 	PATH=/etc/pcontrol.d/$PROCESS
 	if [ ! -e $PATH ]
 	then
-		echo "No config file to load: $PATH" >> $LOGFILE
+		log "No config file to load: $PATH"
 		exit 1
 	fi
 	VALUE=`/bin/grep "$FIELD=" /etc/pcontrol.d/$PROCESS|/usr/bin/cut -d'=' -f2-`
 	echo $VALUE
 }
 
+log ()
+{	
+	MESSAGE=$1
+	DATE=`/bin/date | /usr/bin/tr -d '\n'`
+	echo "[${DATE}] $MESSAGE" >> $LOGFILE
+}
+	
 # CPU Used
 cpu_used ()
 {
@@ -78,18 +85,18 @@ start ()
 	PROCESS=$1
 	BINARY=$(info $PROCESS BINARY)
 	PIDFILE=$(info $PROCESS PIDFILE)
-	LOGFILE=$(info $PROCESS LOGFILE)
+	APPLOG=$(info $PROCESS LOGFILE)
 	ARGS=$(info $PROCESS ARGS)
 
 	if [ -z "$BINARY" ]
 	then
-		echo "BINARY not set" >> $LOGFILE
+		log "BINARY not set"
 		exit 1
 	fi
 
 	if [ ! -e "$BINARY" ]
 	then
-		echo "Binary file not found" >> $LOGFILE
+		log "Binary file not found" 
 		exit 1
 	fi
 
@@ -103,15 +110,15 @@ start ()
 		LOGFILE=/var/log/$PROCESS.log
 	fi
 
-	PID=$(status $BINARY)
+	PID=$(status $PROCESS)
 	if [ "$PID" -gt "0" ]
 	then
 		return 1
 	fi
 
-	echo -n "Starting $PROCESS ..." >> $LOGFILE
+	log "Starting $PROCESS"
 
-	if perl -I /opt/spectros/lib $BINARY $ARGS >> $LOGFILE 2>&1 &
+	if perl -I /opt/spectros/lib $BINARY $ARGS >> $APPLOG 2>&1 &
 	then
 		WAIT=10
 		while [ $(status $PROCESS) -eq 0 ]
@@ -120,14 +127,14 @@ start ()
 			let WAIT=$WAIT-1
 			if [ $WAIT -eq 0 ]
 			then
-				echo '[FAILED]' >> $LOGFILE
+				log "$PROCESS FAILED"
 				return 1
 			fi
 		done
-		echo '[OK]' >> $LOGFILE
+		log "$PROCESS STARTED"
 		return 0
 	else
-		echo "[FAILED]" >> $LOGFILE
+		log "$PROCESS FAILED"
 		return 1
 	fi
 }
@@ -139,10 +146,10 @@ stop ()
 	PID=$(status $PROCESS)
 	if [ "$PID" -eq "0" ]
 	then
-		echo -n "$PROCESS not running" >> $LOGFILE
+		log "$PROCESS not running"
 		return 0
 	else
-		echo -n "Killing $PROCESS [$PID] ..." >> $LOGFILE
+		log "Killing $PROCESS [$PID]"
 		if kill $PID
 		then
 			WAIT=10
@@ -152,14 +159,14 @@ stop ()
 				let WAIT=$WAIT-1
 				if [ $WAIT -eq 0 ]
 				then
-					echo '[FAILED]' >> $LOGFILE
+					log "FAILED"
 					return 1
 				fi
 			done
-			echo '[OK]' >> $LOGFILE
+			log "OK"
 			return 0
 		else
-			echo "[FAILED]" >> $LOGFILE
+			log "FAILED"
 			return 1
 		fi
 	fi
@@ -195,6 +202,16 @@ then
 		echo $STATUS
 		exit 0
 	fi
+elif [ "$1" == "restart" ]
+then
+	if [ -z "$2" ]
+	then
+		echo "Process required for restart action"
+		exit 2
+	else
+		stop $2
+		start $2
+	fi	
 else
 	# Infinite Loop
 	while true
@@ -210,7 +227,7 @@ else
 			else
 				if [ $(info $PROCESS RUN) != 'true' ]
 				then
-					echo "Stopping $PROCESS" >> $LOGFILE
+					log "Stopping $PROCESS"
 					stop $PROCESS
 				else
 					# Check Resource Usage
@@ -222,14 +239,14 @@ else
 					then
 						if [ $MEM_USED -gt $MAX_MEM ]
 						then
-							echo -n "Too much memory[${MEM_USED} > ${MAX_MEM}]: " >> $LOGFILE
+							log "Too much memory[${MEM_USED} > ${MAX_MEM}]"
 							stop $PROCESS
 						fi
 					elif [ ! -z "$MAX_CPU" ]
 					then
 						if [ $CPU_USED -gt $MAX_CPU ]
 						then
-							echo -n "Too much CPU[${MAX_CPU}]: " >> $LOGFILE
+							log "Too much CPU[${MAX_CPU}]"
 							stop $PROCESS
 						fi
 					fi
