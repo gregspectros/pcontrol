@@ -118,7 +118,7 @@ start ()
 
 	log "Starting $PROCESS"
 
-	if perl -I /opt/spectros/lib $BINARY $ARGS >> $APPLOG 2>&1 &
+	if perl -I /opt/monitor/lib $BINARY $ARGS >> $APPLOG 2>&1 &
 	then
 		WAIT=10
 		while [ $(status $PROCESS) -eq 0 ]
